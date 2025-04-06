@@ -1,0 +1,16 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  - name: install dependencies for cgroupv2 plugen
+    dnf:
+      name: dbus-devel
+  - name: compile and install slurm
+    script:
+      chdir: /home/vagrant/
+      cmd: ./scripts/slurmd-install.sh
+  - name: start slurmd
+    service:
+      name: slurmd
+      enabled: yes
+      state: started

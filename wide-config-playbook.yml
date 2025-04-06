@@ -1,0 +1,43 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+    - name: stop firewalld
+      service:
+        name: firewalld
+        enabled: no
+        state: stopped
+    - name: create munge group
+      group:
+        name: munge
+    - name: create munge user
+      user:
+        name: munge
+        group: munge
+        system: true      
+        shell: /usr/sbin/nologin
+    - name: installing munge dependency
+      dnf:
+        name: bzip2
+    - name: copy software sources for compilation
+      copy:
+        src: softwares/
+        dest: /home/vagrant/
+    - name: create munge dir
+      file:
+        path: /etc/munge/
+        state: directory
+    - name: copy a unified munge key
+      copy:
+        src: ./munge.key
+        dest: /etc/munge/munge.key
+    - name: building munge source and installing
+      script:
+        chdir: /home/vagrant/
+        cmd: ./scripts/munge-install.sh
+        creates: /home/vagrant/installed-successfully
+    - name: enable and start munge service
+      service:
+        name: munge
+        enabled: yes
+        state: started

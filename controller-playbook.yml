@@ -1,0 +1,65 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+    - name: enable crb for mysql-devel package
+      command:
+        cmd: dnf config-manager --set-enabled crb
+      when: inventory_hostname == "controllerA"
+    - name: installing mysql-server and development package
+      dnf:
+        name:
+          - mysql-server
+          - mysql-devel
+      when: inventory_hostname == "controllerA"
+    - name: enable and start mysql-server
+      service:
+        name: mysqld
+        enabled: yes
+        state: started
+      when: inventory_hostname == "controllerA"
+    - name: compile and install slurm
+      script:
+        chdir: /home/vagrant/
+        cmd: ./scripts/install-slurmctld.sh
+        creates: /home/vagrant/slurm-24.05.6/etc/slurm-installed-successfully
+    - name: start slurmctld
+      service:
+        name: slurmctld
+        enabled: yes
+        state: started
+    - name: configure slurmdbd
+      script:
+        chdir: /home/vagrant/slurm-24.05.6/etc
+        cmd: ./scripts/slurmdbd-config.sh
+        creates: /home/vagrant/slurm-24.05.6/etc/slurmdbd-installed-successfully
+      when: inventory_hostname == "controllerA"
+    - name: enable and start slurmdbd
+      service:
+        name: slurmdbd
+        enabled: yes
+        state: started
+      when: inventory_hostname == "controllerA"
+    - name: restart slurmctld
+      service:
+        name: slurmctld
+        state: restarted
+        sleep: 10
+    - name: waiting for controllerA to be up
+      wait_for:
+        host: controllerA
+        port: 6819
+        state: "started"
+    - name:
+      service:
+        name: slurmctld
+        state: restarted
+    - name: wait for controllerB to be up
+      wait_for:
+        host: controllerB
+        port: 6817
+        state: "started"
+    - name: create federation multicluster
+      command:
+        cmd: "sacctmgr -i add federation multicluster clusters=clusterA,clusterB"
+      when: inventory_hostname == "controllerA"
